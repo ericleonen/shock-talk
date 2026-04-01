@@ -108,6 +108,9 @@ class DSGE:
     def __init__(self, laws: List[str]):
         # ---- basic format checks ----
         validate_lhs(laws)
+        validate_variable_names(laws)
+        validate_unique_lhs(laws)
+        validate_fl_arguments(laws)
         validate_shock_names(laws)
 
         # ---- infer symbol roles ----

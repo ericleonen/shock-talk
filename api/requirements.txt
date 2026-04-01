@@ -4,3 +4,7 @@ matplotlib
 econpizza
 jax
 pytest
+jinja2
+pyyaml
+openai
+python-dotenv

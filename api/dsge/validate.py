@@ -7,6 +7,84 @@ from .symbols import to_pizza, SYM_RE
 # Validation helpers
 # ---------------------------------------------------------------------------
 
+# Matches any F[...] or L[...] bracket, capturing the full contents
+_FL_ANY_RE = re.compile(r'\b([FL])\[([^\]]*)\]')
+# A valid single-variable argument (bare identifier)
+_FL_VAR_RE = re.compile(r'^[A-Za-z_]\w*$')
+
+
+def validate_fl_arguments(laws: List[str]) -> None:
+    """
+    Verify that every F[...] and L[...] operator contains a single bare
+    variable name — never an expression.
+
+    E.g. ``F[beta*x]`` and ``L[x + y]`` are illegal; coefficients must
+    appear *outside* the brackets: ``beta*F[x]``.
+    """
+    for i, law in enumerate(laws, 1):
+        for m in _FL_ANY_RE.finditer(law):
+            op  = m.group(1)   # 'F' or 'L'
+            arg = m.group(2)
+            if not _FL_VAR_RE.match(arg):
+                raise ValueError(
+                    f"Equation {i}: '{op}[{arg}]' — the argument to {op}[...] "
+                    f"must be a single variable name, not an expression.\n"
+                    f"  {law!r}\n"
+                    f"Move any coefficients outside the brackets. "
+                    f"For example, write 'beta*{op}[x]' instead of '{op}[beta*x]'."
+                )
+
+
+def validate_unique_lhs(laws: List[str]) -> None:
+    """
+    Verify that no variable appears as the left-hand side of more than one
+    equation.
+    """
+    seen: dict[str, int] = {}
+    for i, law in enumerate(laws, 1):
+        if '=' not in law:
+            continue   # validate_lhs will catch this
+        lhs = law.split('=', 1)[0].strip()
+        if lhs in seen:
+            raise ValueError(
+                f"Variable '{lhs}' is defined on the left-hand side of both "
+                f"equation {seen[lhs]} and equation {i}.\n"
+                f"Each variable must appear as the LHS of exactly one equation. "
+                f"Merge the two equations into a single definition of '{lhs}'."
+            )
+        seen[lhs] = i
+
+
+def validate_variable_names(laws: List[str]) -> None:
+    """
+    Check that LHS variable names do not use forbidden suffixes such as
+    ``_next`` or ``_lag``.  These suffixes suggest the author intended a
+    temporal reference, which must instead be expressed with ``F[x]`` / ``L[x]``.
+    """
+    for i, law in enumerate(laws, 1):
+        if '=' not in law:
+            continue   # validate_lhs will catch this
+        lhs = law.split('=', 1)[0].strip()
+        if lhs.endswith('_next'):
+            base = lhs[:-5]
+            raise ValueError(
+                f"Equation {i}: '{lhs}' uses a '_next' suffix, which is not "
+                f"valid ShockTalk syntax.\n"
+                f"  {law!r}\n"
+                f"To express next-period {base!r}, use 'F[{base}]' on the "
+                f"right-hand side of the equation that defines '{base}'."
+            )
+        if lhs.endswith('_lag'):
+            base = lhs[:-4]
+            raise ValueError(
+                f"Equation {i}: '{lhs}' uses a '_lag' suffix, which is not "
+                f"valid ShockTalk syntax.\n"
+                f"  {law!r}\n"
+                f"To express last-period {base!r}, use 'L[{base}]' on the "
+                f"right-hand side of the equation that defines '{base}'."
+            )
+
+
 def validate_lhs(laws: List[str]) -> None:
     """
     Verify that each equation has exactly one bare variable on the left-hand

@@ -1,0 +1,50 @@
+# Few-shot examples for the NL → ShockTalk prompt.
+#
+# Each entry has:
+#   description  – short title shown in the prompt
+#   nl           – the natural-language model assumptions (the "user input")
+#   output       – the ground-truth JSON the LLM should produce
+#     equations  – list of ShockTalk equation strings
+#     parameters – dict of parameter name → default float value
+#
+# Add or edit examples here; the prompt template renders them automatically.
+
+- description: Three-equation New Keynesian model
+  nl: |
+    - Output today equals expected future output minus the real interest rate
+      gap (scaled by the inverse of the intertemporal elasticity of
+      substitution), plus a demand shock.
+    - Inflation today equals discounted expected future inflation plus a
+      slope term times current output, plus a cost-push shock.
+    - The central bank sets the nominal interest rate as a linear function of
+      inflation and output (Taylor rule), with no smoothing.
+  output:
+    equations:
+      - "y  = F[y] - (1/sigma)*(r - F[pi]) + eps_d"
+      - "pi = beta*F[pi] + kappa*y + eps_u"
+      - "r  = phi_pi*pi + phi_y*y"
+    parameters:
+      sigma: 1.0
+      beta: 0.99
+      kappa: 0.1
+      phi_pi: 1.5
+      phi_y: 0.5
+      rho_d: 0.8
+      rho_u: 0.5
+
+- description: Two-equation IS-MP model (no explicit inflation dynamics)
+  nl: |
+    - Output is determined by expected future output, the real interest rate
+      (scaled by the inverse of the intertemporal elasticity), and a demand
+      shock.
+    - The central bank follows a simple rule: raise the nominal rate one-for-
+      one with inflation and proportionally with the output gap.
+  output:
+    equations:
+      - "y = F[y] - (1/sigma)*(r - F[pi]) + eps_d"
+      - "r = phi_pi*pi + phi_y*y"
+    parameters:
+      sigma: 1.0
+      phi_pi: 1.5
+      phi_y: 0.5
+      rho_d: 0.7
