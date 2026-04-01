@@ -6,7 +6,7 @@ ShockTalk is a natural-language interface for building and playing with Dynamic 
 
 ## How It Works
 
-1. **Natural language → ShockTalk syntax.** You describe the model in plain English (e.g. "add a demand shock to the IS curve"). A language model translates this into ShockTalk's equation syntax.
+1. **Natural language → ShockTalk syntax.** You describe the model in plain English (e.g. "Inflation today is driven by expected future inflation, the current output gap, and a cost-push shock."). A language model translates this into ShockTalk's equation syntax.
 2. **ShockTalk syntax → econpizza YAML.** The equations are parsed, validated, and compiled into a [econpizza](https://github.com/gboehl/econpizza) YAML model definition.
 3. **Simulation.** econpizza solves the rational-expectations equilibrium and returns impulse-response paths as a `pd.DataFrame`.
 
