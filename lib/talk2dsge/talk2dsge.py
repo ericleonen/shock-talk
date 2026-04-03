@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -71,9 +72,39 @@ def _validate_result(result: dict[str, Any]) -> str | None:
 
     from dsge import DSGE
     try:
-        DSGE(result["equations"])
+        model = DSGE(result["equations"])
     except ValueError as exc:
         return str(exc)
+
+    provided = set(result["parameters"].keys())
+    required = set(model.parameters)
+    missing  = required - provided
+    extra    = provided - required
+
+    if missing or extra:
+        lines = []
+        if missing:
+            lines.append(f"Missing parameter(s): {sorted(missing)}")
+            # Call out auto-generated shock persistence params specifically,
+            # since the LLM may not realise they are required when no explicit
+            # AR(1) equation was written for the shock.
+            auto_rho = sorted(p for p in missing if re.match(r'^rho_\w+$', p))
+            if auto_rho:
+                shock_names = ['eps_' + p[4:] for p in auto_rho]
+                lines.append(
+                    f"Note: {auto_rho} are persistence parameters for the "
+                    f"auto-generated AR(1) equations of {shock_names}. "
+                    "Add them to 'parameters' with a value in [0, 1)."
+                )
+        if extra:
+            lines.append(f"Unexpected parameter(s): {sorted(extra)}")
+        lines.append(f"Required parameters: {sorted(required)}")
+        return (
+            "The 'parameters' object does not match the model's inferred parameters.\n"
+            + "\n".join(lines)
+            + "\nEnsure every parameter that appears in the equations is assigned a value, "
+            "and no extra parameters are included."
+        )
 
     return None
 
@@ -92,10 +123,10 @@ def _retry_message(error: str, attempt: int, max_retries: int) -> str:
 # Public interface
 # ---------------------------------------------------------------------------
 
-def nl_to_dsge(
+def talk2dsge(
     nl_prompt: str,
     *,
-    model: str = "gpt-4o",
+    model: str = "gpt-5.4-mini",
     client: OpenAI | None = None,
     temperature: float = 0.2,
     max_retries: int = 0,
@@ -133,7 +164,7 @@ def nl_to_dsge(
     dict
         A dictionary with two keys:
 
-        ``"equations"`` : list[str]
+        ``"laws"`` : list[str]
             ShockTalk equation strings, one per endogenous variable.
         ``"parameters"`` : dict[str, float]
             Suggested default parameter values.

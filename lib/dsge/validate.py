@@ -35,24 +35,36 @@ def validate_fl_arguments(laws: List[str]) -> None:
                 )
 
 
-def validate_unique_lhs(laws: List[str]) -> None:
+def merge_laws(laws: List[str]) -> List[str]:
     """
-    Verify that no variable appears as the left-hand side of more than one
-    equation.
+    Merge equations that share the same LHS variable by summing their RHS
+    expressions.
+
+    This allows a model to be written with the same variable defined across
+    multiple lines — e.g. separating a structural equation from its shock term:
+
+        ["y = F[y] - (1/sigma)*(r - F[pi])", "y = eps_d"]
+
+    becomes:
+
+        ["y = F[y] - (1/sigma)*(r - F[pi]) + eps_d"]
+
+    First-encounter order of variables is preserved.
     """
-    seen: dict[str, int] = {}
-    for i, law in enumerate(laws, 1):
+    merged: dict[str, str] = {}
+    order: list[str] = []
+    for law in laws:
         if '=' not in law:
-            continue   # validate_lhs will catch this
-        lhs = law.split('=', 1)[0].strip()
-        if lhs in seen:
-            raise ValueError(
-                f"Variable '{lhs}' is defined on the left-hand side of both "
-                f"equation {seen[lhs]} and equation {i}.\n"
-                f"Each variable must appear as the LHS of exactly one equation. "
-                f"Merge the two equations into a single definition of '{lhs}'."
-            )
-        seen[lhs] = i
+            continue  # validate_lhs will catch this
+        lhs, rhs = law.split('=', 1)
+        lhs = lhs.strip()
+        rhs = rhs.strip()
+        if lhs in merged:
+            merged[lhs] = merged[lhs] + ' + ' + rhs
+        else:
+            merged[lhs] = rhs
+            order.append(lhs)
+    return [f"{lhs} = {merged[lhs]}" for lhs in order]
 
 
 def validate_variable_names(laws: List[str]) -> None:

@@ -16,6 +16,24 @@ You can also skip step 1 and write ShockTalk syntax directly — see the example
 
 ## Supported Models
 
+ShockTalk supports **log-linearized** models — a specific and widely-used approximation technique in macroeconomics.
+
+### What log-linearization means
+
+Most macroeconomic models are inherently nonlinear (e.g. a Cobb-Douglas production function `Y = K^α N^(1-α)`). Log-linearization approximates the model by replacing each variable with its **percentage deviation from steady state**:
+
+$$\hat{x}_t = \frac{x_t - x^*}{x^*} \approx \log x_t - \log x^*$$
+
+where $x^*$ is the steady-state level of $x$. The resulting equations are linear in the $\hat{x}_t$ terms, which makes the model tractable to solve analytically and simulate efficiently.
+
+### Why all variables start at zero
+
+Because every variable is expressed as a deviation from its own steady state, the steady state of the transformed system is exactly zero for every variable — by definition. A value of `0.01` in the simulation output means the variable is 1% above its steady-state level; `0` means it is exactly at steady state.
+
+This has a convenient practical consequence: you never need to know or specify the actual steady-state levels ($Y^*$, $\Pi^*$, etc.). Those levels get divided out in the transformation, so only the **parameters governing dynamics** — how fast variables return to steady state, how they co-move — need to be supplied. Simulations always start from steady state, meaning all variables begin at zero before any shock is applied.
+
+### Equation syntax
+
 ShockTalk supports models where every equation is **linear** in the following terms:
 
 | Term | Syntax | Meaning |

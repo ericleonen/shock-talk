@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "shocktalk"
+version = "0.1.0"
+description = "A python library for easily building and playing with DSGE models"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "sympy",
+    "econpizza",
+    "jax",
+    "jinja2",
+    "pyyaml",
+    "openai",
+    "python-dotenv",
+    "pandas",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dsge*", "talk2dsge*", "dsge2latex*"]

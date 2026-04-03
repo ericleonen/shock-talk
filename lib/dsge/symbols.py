@@ -10,6 +10,23 @@ L_RE   = re.compile(r'L\[(\w+)\]')   # L[x]  → one-period lag
 SYM_RE = re.compile(r'[A-Za-z_]\w*') # all identifiers
 
 
+def _rhs_param_ids(rhs: str) -> set[str]:
+    """
+    Return identifiers in parameter/coefficient position on *rhs*:
+      - directly before ``*``:          ``beta*F[pi]``  →  ``beta``
+      - inside ``(...)`` before ``*``:  ``(1-delta)*kLag``  →  ``delta``
+    Everything else on the RHS is a variable (no var*var by assumption).
+    """
+    params: set[str] = set()
+    # Direct: identifier immediately before *
+    for m in re.finditer(r'([A-Za-z_]\w*)\s*\*', rhs):
+        params.add(m.group(1))
+    # Grouped: (...) immediately before *  (no nested parens assumed)
+    for m in re.finditer(r'\(([^)]*)\)\s*\*', rhs):
+        params.update(re.findall(r'[A-Za-z_]\w*', m.group(1)))
+    return params
+
+
 def to_pizza(expr: str) -> str:
     """
     Translate user-syntax expression to econpizza notation.
@@ -56,14 +73,21 @@ def infer_symbols(laws: List[str]) -> Tuple[
     base_set:  set[str] = set()  # base names inferred from Prime/Lag forms
     all_syms:  set[str] = set()
 
+    # Pre-pass: collect identifiers in parameter position (left of *).
+    # Everything else on a RHS that is not noise or 'e' is a variable.
+    param_ids: set[str] = set()
+    for law in laws:
+        _, rhs = to_pizza(law).split('=', 1)
+        param_ids |= _rhs_param_ids(rhs)
+
     for law in laws:
         pizza = to_pizza(law)
-        lhs, _ = pizza.split('=', 1)
+        lhs, rhs = pizza.split('=', 1)
         lhs_set.add(lhs.strip())
         ids = set(SYM_RE.findall(pizza))
         all_syms |= ids
 
-        for s in ids:
+        for s in SYM_RE.findall(rhs):
             if s.endswith('Prime'):
                 base_set.add(s[:-5])
             elif s.endswith('Lag'):
@@ -71,6 +95,9 @@ def infer_symbols(laws: List[str]) -> Tuple[
             elif s.startswith('eps_'):
                 # Bare eps_* on a RHS counts as an endogenous shock process
                 # even if the user never wrote an explicit AR(1) equation for it.
+                base_set.add(s)
+            elif s not in param_ids and not s.startswith('e_') and s != 'e':
+                # Not a coefficient, not noise → variable.
                 base_set.add(s)
 
     base_vars = lhs_set | base_set

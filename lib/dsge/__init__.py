@@ -109,7 +109,7 @@ class DSGE:
         # ---- basic format checks ----
         validate_lhs(laws)
         validate_variable_names(laws)
-        validate_unique_lhs(laws)
+        laws = merge_laws(laws)
         validate_fl_arguments(laws)
         validate_shock_names(laws)
 
@@ -241,7 +241,6 @@ class DSGE:
         self,
         parameters:    Dict[str, float],
         shocks:        Optional[Dict[str, float]] = None,
-        init_state:    Optional[Dict[str, float]] = None,
         T:             int = 40,
         yaml_path:     Optional[str] = None,
     ) -> pd.DataFrame:
@@ -262,11 +261,6 @@ class DSGE:
             White-noise shocks to apply in period 0, as a mapping from noise
             input name to size (e.g. ``{"e_d": 0.01, "e_u": -0.005}``).
             Defaults to no shock.
-        init_state : dict[str, float], optional
-            Initial deviations from steady state for any subset of variables
-            (e.g. ``{"y": 0.02}`` starts output 2% above normal).
-            Variables not listed default to their steady-state value of zero.
-            Defaults to the steady state for all variables.
         T : int, optional
             Number of periods to return (excluding the initial period 0).
             Defaults to 40.
@@ -286,8 +280,8 @@ class DSGE:
         Raises
         ------
         ValueError
-            If a required parameter is missing, an unknown shock or variable
-            name is supplied, or the solver fails to converge.
+            If a required parameter is missing, an unknown shock name is
+            supplied, or the solver fails to converge.
         RuntimeError
             If the Blanchard-Kahn condition is not satisfied.
         """
@@ -317,21 +311,9 @@ class DSGE:
         elif len(shocks) > 1:
             shock_arg = list(shocks.items())         # list of (name, size) — handled below
 
-        # ---- build init_state array ----
-        var_names  = self._mod['var_names']  # alphabetically sorted by econpizza
-        stst_arr   = np.array(list(self._mod['stst'].values()))  # all zeros
-        init_arr   = stst_arr.copy()
-
-        if init_state:
-            unknown_vars = set(init_state) - set(var_names)
-            if unknown_vars:
-                raise ValueError(
-                    f"Unknown variable(s) in init_state: {sorted(unknown_vars)}.\n"
-                    f"Available variables: {var_names}."
-                )
-            for vname, val in init_state.items():
-                idx = var_names.index(vname)
-                init_arr[idx] = val
+        # ---- init at steady state (zero by log-linearisation) ----
+        var_names = self._mod['var_names']  # alphabetically sorted by econpizza
+        init_arr  = np.array(list(self._mod['stst'].values()))  # all zeros
 
         # ---- run solver ----
         horizon = max(T + 1, 100)  # econpizza needs enough horizon to converge
