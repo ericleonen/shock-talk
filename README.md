@@ -1,6 +1,6 @@
 # ShockTalk
 
-ShockTalk is a natural-language interface for building and playing with Dynamic Stochastic General Equilibrium (DSGE) models. It is built on top of a Python library that allows you to create simple, linear DSGE models in plain syntax.
+ShockTalk is a natural-language interface for building and playing with Dynamic Stochastic General Equilibrium (DSGE) models. It is built on top of a Python library, also named `shocktalk`, that allows you to create simple, linear DSGE models in plain syntax.
 
 ---
 
@@ -20,9 +20,9 @@ ShockTalk supports **log-linearized** models — a specific and widely-used appr
 
 ### What log-linearization means
 
-Most macroeconomic models are inherently nonlinear (e.g. a Cobb-Douglas production function `Y = K^α N^(1-α)`). Log-linearization approximates the model by replacing each variable with its **percentage deviation from steady state**:
+Most macroeconomic models are inherently nonlinear (e.g. a Cobb-Douglas production function $Y = K^\alpha N^{1-\alpha}$). Log-linearization approximates the model by replacing each variable with its **percentage deviation from steady state**:
 
-$$\hat{x}_t = \frac{x_t - x^*}{x^*} \approx \log x_t - \log x^*$$
+$$\hat{x}_t = \frac{x_t - x^\ast}{x^\ast} \approx \log x_t - \log x^{*}$$
 
 where $x^*$ is the steady-state level of $x$. The resulting equations are linear in the $\hat{x}_t$ terms, which makes the model tractable to solve analytically and simulate efficiently.
 
