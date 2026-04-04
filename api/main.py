@@ -3,9 +3,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from shocktalk.dsge import DSGE
-from shocktalk.talk2dsge import talk2dsge
-from shocktalk.dsge2latex import dsge2latex
+from shocktalk import DSGE, talk2dsge, dsge2latex
 
 app = FastAPI(title="ShockTalk API")
 
