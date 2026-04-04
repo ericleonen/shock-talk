@@ -1,11 +1,11 @@
 [build-system]
 requires = ["setuptools>=68"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "shocktalk"
 version = "0.1.0"
-description = "A python library for easily building and playing with DSGE models"
+description = "A Python library for easily building and playing with DSGE models"
 requires-python = ">=3.10"
 dependencies = [
     "numpy",
