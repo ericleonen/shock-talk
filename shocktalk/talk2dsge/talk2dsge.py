@@ -127,6 +127,7 @@ def talk2dsge(
     nl_prompt: str,
     *,
     model: str = "gpt-5.4-mini",
+    api_key: str | None = None,
     client: OpenAI | None = None,
     temperature: float = 0.2,
     max_retries: int = 0,
@@ -144,9 +145,13 @@ def talk2dsge(
     model : str, optional
         LLM model identifier understood by the OpenAI-compatible client.
         Defaults to ``"gpt-4o"``.
+    api_key : str, optional
+        API key for the OpenAI-compatible client. Defaults to the
+        ``OPENAI_API_KEY`` environment variable. Ignored if ``client`` is
+        provided.
     client : openai.OpenAI, optional
         A pre-configured OpenAI (or compatible) client. If ``None``, a default
-        client is constructed using the ``OPENAI_API_KEY`` environment variable.
+        client is constructed using ``api_key``.
     temperature : float, optional
         Sampling temperature. Low values (0.0–0.3) produce more deterministic,
         structured output. Defaults to 0.2.
@@ -176,7 +181,7 @@ def talk2dsge(
         error.
     """
     if client is None:
-        client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        client = OpenAI(api_key=api_key if api_key is not None else os.environ["OPENAI_API_KEY"])
 
     system_prompt = _render_prompt(nl_prompt)
     messages: list[dict[str, str]] = [
