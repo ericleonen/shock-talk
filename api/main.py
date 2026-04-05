@@ -75,7 +75,7 @@ def nl_to_dsge(req: Talk2DSGERequest):
         raise HTTPException(status_code=422, detail=str(exc))
 
     return Talk2DSGEResponse(
-        equations=result["equations"],
+        equations=result["laws"],
         parameters=result["parameters"],
     )
 
