@@ -4,7 +4,10 @@
 #   description  – short title shown in the prompt
 #   nl           – the natural-language model assumptions (the "user input")
 #   output       – the ground-truth JSON the LLM should produce
-#     equations  – list of ShockTalk equation strings
+#     laws       – dict mapping each LHS variable to a list of terms.
+#                  Each term is either:
+#                    - a plain string (implicit coefficient 1), or
+#                    - a [coeff_expr, term] pair.
 #     parameters – dict of parameter name → default float value
 #
 # Add or edit examples here; the prompt template renders them automatically.
@@ -19,10 +22,19 @@
     - The central bank sets the nominal interest rate as a linear function of
       inflation and output (Taylor rule), with no smoothing.
   output:
-    equations:
-      - "y  = F[y] - (1/sigma)*(r - F[pi]) + eps_d"
-      - "pi = beta*F[pi] + kappa*y + eps_u"
-      - "r  = phi_pi*pi + phi_y*y"
+    laws:
+      y:
+        - "F[y]"
+        - ["-1/sigma", "r"]
+        - ["1/sigma", "F[pi]"]
+        - "eps_d"
+      pi:
+        - ["beta", "F[pi]"]
+        - ["kappa", "y"]
+        - "eps_u"
+      r:
+        - ["phi_pi", "pi"]
+        - ["phi_y", "y"]
     parameters:
       sigma: 1.0
       beta: 0.99
@@ -40,9 +52,15 @@
     - The central bank follows a simple rule: raise the nominal rate one-for-
       one with inflation and proportionally with the output gap.
   output:
-    equations:
-      - "y = F[y] - (1/sigma)*(r - F[pi]) + eps_d"
-      - "r = phi_pi*pi + phi_y*y"
+    laws:
+      y:
+        - "F[y]"
+        - ["-1/sigma", "r"]
+        - ["1/sigma", "F[pi]"]
+        - "eps_d"
+      r:
+        - ["phi_pi", "pi"]
+        - ["phi_y", "y"]
     parameters:
       sigma: 1.0
       phi_pi: 1.5

@@ -55,26 +55,95 @@ def _render_prompt(nl_prompt: str) -> str:
     )
 
 
-def _validate_result(result: dict[str, Any]) -> str | None:
+def _laws_to_equations(laws: dict[str, list]) -> list[str]:
+    """
+    Convert a structured ``laws`` dict into a list of ShockTalk equation strings.
+
+    Each key is an LHS variable name.  Each value is a list of terms, where
+    every term is either:
+
+    * A plain **string** — the term itself with an implicit coefficient of 1,
+      e.g. ``"F[y]"``, ``"eps_d"``, ``"y"``.
+    * A **two-element list** ``[coeff_expr, term]`` — the term scaled by a
+      parameter-only coefficient expression, e.g. ``["beta", "F[pi]"]``,
+      ``["-1/sigma", "r"]``.
+
+    The coefficient is wrapped in parentheses only when it contains a binary
+    ``+`` or ``-`` operator (i.e., a sum or difference), so that expressions
+    like ``"1-alpha"`` remain unambiguous.  Simple coefficients like ``"beta"``,
+    ``"-1/sigma"``, or ``"1/sigma"`` are written without parentheses.
+
+    Examples
+    --------
+    >>> _laws_to_equations({
+    ...     "y":  [["1", "F[y]"], ["-1/sigma", "r"], ["1/sigma", "F[pi]"], "eps_d"],
+    ...     "pi": [["beta", "F[pi]"], ["kappa", "y"], "eps_u"],
+    ...     "r":  [["phi_pi", "pi"], ["phi_y", "y"]],
+    ... })
+    ['y = 1*F[y] + -1/sigma*r + 1/sigma*F[pi] + eps_d',
+     'pi = beta*F[pi] + kappa*y + eps_u',
+     'r = phi_pi*pi + phi_y*y']
+    """
+    equations: list[str] = []
+    for lhs, terms in laws.items():
+        rhs_parts: list[str] = []
+        for term in terms:
+            if isinstance(term, str):
+                rhs_parts.append(term)
+            elif isinstance(term, (list, tuple)) and len(term) == 2:
+                coeff, var = term
+                # Wrap in parens only if the coefficient contains a binary + or -
+                # (skip position 0 to allow a leading unary minus like "-1/sigma")
+                needs_parens = bool(re.search(r'[+-]', coeff[1:]))
+                coeff_str = f"({coeff})" if needs_parens else coeff
+                rhs_parts.append(f"{coeff_str}*{var}")
+            else:
+                raise ValueError(
+                    f"In the law for '{lhs}': each term must be a string or a "
+                    f"[coefficient, variable] pair, got {term!r}."
+                )
+        rhs = " + ".join(rhs_parts) if rhs_parts else "0"
+        equations.append(f"{lhs} = {rhs}")
+    return equations
+
+
+def _validate_result(result: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
     """
     Run all ShockTalk syntax checks on a parsed LLM result.
 
-    Returns an error message string if validation fails, or ``None`` if the
-    result is valid.
+    Converts the structured ``laws`` dict to equation strings as a side-effect,
+    replacing ``result["laws"]`` with the translated list so the caller can use
+    it directly.
+
+    Returns a tuple ``(error, result)``:
+
+    * ``error`` is a string describing what went wrong, or ``None`` if valid.
+    * ``result`` is the (possibly mutated) input dict with ``"laws"`` converted
+      to a list of ShockTalk equation strings when translation succeeded.
     """
-    if "equations" not in result or "parameters" not in result:
-        missing = [k for k in ("equations", "parameters") if k not in result]
+    if "laws" not in result or "parameters" not in result:
+        missing = [k for k in ("laws", "parameters") if k not in result]
         return (
             f"The JSON response is missing required key(s): {missing}.\n"
             "Your response must be a JSON object with exactly the keys "
-            "'equations' (list of strings) and 'parameters' (object of floats)."
+            "'laws' (object mapping each LHS variable to a list of terms) "
+            "and 'parameters' (object of floats).",
+            result,
         )
+
+    # Convert structured laws dict → equation strings
+    try:
+        equations = _laws_to_equations(result["laws"])
+    except ValueError as exc:
+        return str(exc), result
+
+    result["laws"] = equations
 
     from dsge import DSGE
     try:
-        model = DSGE(result["equations"])
+        model = DSGE(result["laws"])
     except ValueError as exc:
-        return str(exc)
+        return str(exc), result
 
     provided = set(result["parameters"].keys())
     required = set(model.parameters)
@@ -102,11 +171,12 @@ def _validate_result(result: dict[str, Any]) -> str | None:
         return (
             "The 'parameters' object does not match the model's inferred parameters.\n"
             + "\n".join(lines)
-            + "\nEnsure every parameter that appears in the equations is assigned a value, "
-            "and no extra parameters are included."
+            + "\nEnsure every parameter that appears in the 'laws' terms is assigned a value, "
+            "and no extra parameters are included.",
+            result,
         )
 
-    return None
+    return None, result
 
 
 def _retry_message(error: str, attempt: int, max_retries: int) -> str:
@@ -170,7 +240,9 @@ def talk2dsge(
         A dictionary with two keys:
 
         ``"laws"`` : list[str]
-            ShockTalk equation strings, one per endogenous variable.
+            ShockTalk equation strings, one per endogenous variable,
+            translated from the structured per-variable term lists that
+            the LLM produces internally.
         ``"parameters"`` : dict[str, float]
             Suggested default parameter values.
 
@@ -214,8 +286,8 @@ def talk2dsge(
             messages.append({"role": "user", "content": _retry_message(error, attempt + 1, max_retries)})
             continue
 
-        # Validate structure + ShockTalk syntax
-        error = _validate_result(result)
+        # Validate structure + ShockTalk syntax; also converts laws dict → strings
+        error, result = _validate_result(result)
         if error is None:
             return result
 

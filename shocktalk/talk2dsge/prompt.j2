@@ -3,59 +3,52 @@ DSGE model assumptions into equations written in ShockTalk syntax.
 
 ---
 
-## ShockTalk Syntax
-
-Every equation must have exactly one endogenous variable on the left-hand side,
-and a **linear** combination of allowed terms on the right-hand side:
-
-    variable = <linear expression>
+## ShockTalk Concepts
 
 ### Allowed term types
 
-| Term          | Syntax       | Meaning                           |
-|---------------|--------------|-----------------------------------|
-| Current var   | `x`          | x at time t                       |
-| Forward var   | `F[x]`       | Rational expectation of x at t+1  |
-| Lagged var    | `L[x]`       | x at time t-1                     |
-| Shock process | `eps_<name>` | AR(1) state variable              |
-| White noise   | `e_<name>`   | i.i.d. innovation (see below)     |
+| Term type     | How to write it in a term list | Meaning                           |
+|---------------|-------------------------------|-----------------------------------|
+| Current var   | `"x"`                         | x at time t                       |
+| Forward var   | `"F[x]"`                      | Rational expectation of x at t+1  |
+| Lagged var    | `"L[x]"`                      | x at time t-1                     |
+| Shock process | `"eps_<name>"`                | AR(1) state variable              |
 
-**IMPORTANT**: The argument to `F[...]` and `L[...]` must be a **single variable name** — never an expression.
-`F[beta*x]`, `F[x + y]`, `F[1/x]` are all **illegal**. If you need `E_t[beta * x_{t+1}]`, write `beta*F[x]`.
+**IMPORTANT**: The argument to `F[...]` and `L[...]` must be a **single variable
+name** — never an expression. `"F[beta*x]"` is illegal. Coefficients always go
+in the first element of the pair: `["beta", "F[x]"]`.
 
 ### Naming conventions
 
 - **Variables**: short lowercase names, e.g. `y`, `pi`, `r`, `c`, `w`.
   Do **NOT** use suffixes like `_next` or `_lag` (e.g., `k_next` is forbidden).
-  Next-period capital is expressed as `F[k]` inside another equation, not as a new variable.
+  Next-period capital is expressed as `"F[k]"` in the term list.
 - **Shock processes**: always prefixed `eps_`, e.g. `eps_d`, `eps_u`, `eps_a`.
   Each shock is an AR(1) process. You do NOT need to write its law of motion
   unless you want to override it; ShockTalk auto-generates:
       eps_<name> = rho_<name> * L[eps_<name>] + e_<name>
-- **White noise**: always prefixed `e_`, e.g. `e_d`. Never list these in your
-  equations — they appear automatically via the shock's law of motion.
+- **White noise**: always prefixed `e_`, e.g. `e_d`. Never include these as
+  terms — they appear automatically via the shock's law of motion.
 - **Parameters**: everything else — names like `beta`, `sigma`, `kappa`,
   `phi_pi`, `rho_d`. These must be supplied numerically at simulation time.
-- **Name choices**: ensure names of variables or parameters are always valid Greek letters in LaTeX or upper- or lowercase letters.
+- **Name choices**: ensure names of variables or parameters are always valid
+  Greek letters in LaTeX or upper- or lowercase letters.
 
 ### Coefficient rules
 
 - Coefficients must be **expressions of parameters only** — no endogenous
-  variables. Examples: `beta`, `(1/sigma)`, `phi_pi`.
-- A coefficient must appear **before** the variable in a product:
-      beta*F[pi]   ✓      F[pi]*beta   ✗
-- The full expression must be **linear** in all endogenous variables and shocks.
-  Products of two endogenous quantities (`y*pi`, `y**2`) are **strictly forbidden**.
-  Powers of any variable (`k**alpha`, `n**(1-alpha)`, `c**(-sigma)`) are **strictly forbidden** —
-  they are nonlinear. Log-linearize any nonlinear relationship before writing equations.
+  variables. Examples: `"beta"`, `"-1/sigma"`, `"phi_pi"`.
+- The full model must be **linear** in all endogenous variables and shocks.
+  Products of two endogenous quantities (`y*pi`, `y**2`) are **strictly
+  forbidden**. Powers of any variable (`k**alpha`) are **strictly forbidden** —
+  they are nonlinear. Log-linearize any nonlinear relationship first.
 - Leads and lags beyond one period (`F[F[x]]`, `L[L[x]]`) are not allowed.
 
 ### One equation per variable
 
-The number of equations must equal the number of endogenous variables. Every
-variable that appears in any equation must be defined as the LHS of **exactly one**
-equation. It is **illegal** for the same variable to appear as the LHS of two different
-equations (e.g., two separate equations both defining `w`).
+Every variable that appears in any term list must be defined as a key in
+`"laws"` **exactly once**. The number of keys must equal the number of
+endogenous variables.
 
 ---
 
@@ -66,19 +59,31 @@ fences.
 
 Schema:
 {
-  "equations": [
-    "<variable> = <rhs>",
+  "laws": {
+    "<lhs_variable>": [
+      "<term>",                   // string: term with implicit coefficient 1
+      ["<coeff_expr>", "<term>"]  // pair: term scaled by a parameter expression
+    ],
     ...
-  ],
+  },
   "parameters": {
     "<name>": <float>,
     ...
   }
 }
 
+Where `<term>` is one of:
+- A bare variable name: `"y"`, `"pi"`, `"r"`
+- A lagged variable:    `"L[k]"`
+- A forward variable:   `"F[pi]"`
+- A shock process:      `"eps_d"`
+
+And `<coeff_expr>` is a parameter-only expression, e.g. `"beta"`, `"-1/sigma"`,
+`"(1-alpha)"`.
+
 Rules for `parameters`:
-- Include **every** parameter that appears in the equations, including `rho_*`
-  persistence parameters for each shock process used.
+- Include **every** parameter that appears in any coefficient expression,
+  including `rho_*` persistence parameters for each shock process used.
 - Values should be reasonable calibration defaults (e.g. `beta = 0.99`,
   `sigma = 1.0`, `rho_d = 0.8`).
 - Do NOT include variable names, shock names (`eps_*`), or noise names (`e_*`)

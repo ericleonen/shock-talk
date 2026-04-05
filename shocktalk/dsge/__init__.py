@@ -318,6 +318,13 @@ class DSGE:
         # ---- run solver ----
         horizon = max(T + 1, 100)  # econpizza needs enough horizon to converge
 
+        # Build a par_names-ordered dict so that econpizza's d2jnp helper
+        # (which does list(pars.values())) reads values in the right sequence.
+        # Passing self._last_pars directly is wrong: its key order reflects the
+        # user-supplied dict (often alphabetical from JSON), while par_names
+        # follows equation-encounter order in the YAML.
+        pars_ordered = {p: self._last_pars[p] for p in self._mod['par_names']}
+
         if isinstance(shock_arg, list):
             # Multiple simultaneous shocks: superimpose via linearity
             x_total = np.zeros((horizon + 1, len(var_names)))
@@ -325,7 +332,7 @@ class DSGE:
                 x_single, flag = self._mod.find_path(
                     shock=      (shk_name, shk_size),
                     init_state= init_arr,
-                    pars=       self._last_pars,
+                    pars=       pars_ordered,
                     horizon=    horizon,
                     verbose=    False,
                 )
@@ -336,13 +343,13 @@ class DSGE:
                         "the shock size."
                     )
                 x_total += np.array(x_single)
-            # init_state was added once per shock — subtract extras
-            x_total -= (len(shock_arg) - 1) * stst_arr[None, :]
+            # init_state (all zeros) was added once per shock — subtract extras
+            x_total -= (len(shock_arg) - 1) * init_arr[None, :]
         else:
             x_raw, flag = self._mod.find_path(
                 shock=      shock_arg,
                 init_state= init_arr,
-                pars=       self._last_pars,
+                pars=       pars_ordered,
                 horizon=    horizon,
                 verbose=    False,
             )

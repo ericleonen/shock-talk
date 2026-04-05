@@ -64,11 +64,12 @@ def _simulate_direct(
     var_names = mod["var_names"]
     init_arr = np.array(list(mod["stst"].values()))  # all zeros
     horizon = max(T + 1, 100)
+    pars_ordered = {p: parameters[p] for p in mod["par_names"]}
 
     x_raw, flag = mod.find_path(
         shock=shock,
         init_state=init_arr,
-        pars=dict(parameters),
+        pars=pars_ordered,
         horizon=horizon,
         verbose=False,
     )
